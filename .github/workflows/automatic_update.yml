@@ -1,0 +1,102 @@
+name: WebView2 Self Release Check and Update
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-webview2-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Check for new WebView2 version
+      id: check_version
+      run: |
+        LATEST_VERSION=$(curl -s "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/index.json" | \
+          jq -r '.versions[-1]')
+
+        echo "Latest version: $LATEST_VERSION"
+
+        if git tag --list | grep -q "webview2-$LATEST_VERSION"; then
+          echo "Already have $LATEST_VERSION, Microsoft didn't update anything!"
+          echo "new_version=false" >> $GITHUB_OUTPUT
+        else
+          echo "new_version=true" >> $GITHUB_OUTPUT
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+
+          VERSION_NO_DOTS=$(echo $LATEST_VERSION | tr -d '.')
+          echo "version_no_dots=$VERSION_NO_DOTS" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Download and unzip the WebView2 package
+      if: steps.check_version.outputs.new_version == 'true'
+      run: |
+        VERSION="${{ steps.check_version.outputs.version }}"
+
+        mkdir -p temp_extract
+        cd temp_extract
+
+        curl -L -o "webview2.nupkg" \
+          "https://globalcdn.nuget.org/packages/microsoft.web.webview2.$VERSION.nupkg"
+
+        unzip -q webview2.nupkg
+
+        find . -maxdepth 1 -not -name '.' -not -name '.git' -not -name '.github' -not -name 'temp_extract' -exec rm -rf {} +
+
+        cp -r temp_extract/* .
+        rm -rf temp_extract
+
+    - name: Commit changes
+      if: steps.check_version.outputs.new_version == 'true'
+      run: |
+        git config --local user.email "xxdr@duck.com"
+        git config --local user.name "xanners (GH Actions)"
+
+        git add .
+        git commit -m "Update WebView2 to version ${{ steps.check_version.outputs.version }}" || exit 0
+        git push
+
+    - name: Create release notes
+      if: steps.check_version.outputs.new_version == 'true'
+      id: release_notes
+      run: |
+        VERSION="${{ steps.check_version.outputs.version }}"
+        VERSION_NO_DOTS="${{ steps.check_version.outputs.version_no_dots }}"
+        RELEASE_NOTES_URL="https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/?tabs=dotnetcsharp#$VERSION_NO_DOTS"
+
+        # Create basic release notes (Microsoft's site is difficult to scrape reliably)
+        cat > release_notes.md << EOF
+        - [Official Release Notes]($RELEASE_NOTES_URL)
+        - [NuGet Package](https://www.nuget.org/packages/Microsoft.Web.WebView2/$VERSION)
+        EOF
+
+        echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+        cat release_notes.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      if: steps.check_version.outputs.new_version == 'true'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: "v${{ steps.check_version.outputs.version }}"
+        release_name: "WebView2: ${{ steps.check_version.outputs.version }}"
+        body: ${{ steps.release_notes.outputs.release_notes }}
+        draft: false
+        prerelease: false
