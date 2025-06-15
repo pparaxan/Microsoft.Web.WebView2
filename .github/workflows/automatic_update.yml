@@ -55,6 +55,7 @@ jobs:
           "https://globalcdn.nuget.org/packages/microsoft.web.webview2.$VERSION.nupkg"
 
         unzip -q webview2.nupkg
+        rm webview2.nupkg
 
         cd ..
         find . -maxdepth 1 -not -name '.' -not -name '.git' -not -name '.github' -not -name 'README.txt' -not -name 'temp_extract' -exec rm -rf {} +
