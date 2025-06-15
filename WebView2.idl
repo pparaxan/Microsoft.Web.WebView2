@@ -125,6 +125,8 @@ interface ICoreWebView2RasterizationScaleChangedEventHandler;
 interface ICoreWebView2Controller4;
 interface ICoreWebView2ControllerOptions;
 interface ICoreWebView2ControllerOptions2;
+interface ICoreWebView2ControllerOptions3;
+interface ICoreWebView2ControllerOptions4;
 interface ICoreWebView2Cookie;
 interface ICoreWebView2CookieManager;
 interface ICoreWebView2GetCookiesCompletedHandler;
@@ -7467,6 +7469,66 @@ interface ICoreWebView2ControllerOptions2 : ICoreWebView2ControllerOptions {
   /// ```
   /// \snippet AppWindow.cpp ScriptLocaleSetting
   [propput] HRESULT ScriptLocale([in] LPCWSTR value);
+
+
+
+}
+
+
+
+/// Controller option used to expose the DefaultBackgroundColor property early in the loading process.
+[uuid(b32b191a-8998-57ca-b7cb-e04617e4ce4a), object, pointer_default(unique)]
+interface ICoreWebView2ControllerOptions3 : ICoreWebView2ControllerOptions2 {
+  /// Gets the `DefaultBackgroundColor` property.
+  [propget] HRESULT DefaultBackgroundColor([out, retval] COREWEBVIEW2_COLOR* value);
+
+
+  /// This property allows users to initialize the `DefaultBackgroundColor` early,
+  /// preventing a white flash that can occur while WebView2 is loading when
+  /// the background color is set to something other than white. With early
+  /// initialization, the color remains consistent from the start. After
+  /// initialization, `CoreWebView2Controller.DefaultBackgroundColor` will return the value set using this API.
+  /// 
+  /// The `CoreWebView2Controller.DefaultBackgroundColor` can be set via the WEBVIEW2_DEFAULT_BACKGROUND_COLOR environment variable,
+  /// which will remain supported for cases where this solution is being used.
+  /// It is encouraged to transition away from the environment variable and use this API solution to
+  /// apply the property. It is important to highlight that when set, the enviroment variable overrides
+  /// ControllerOptions::DefaultBackgroundColor and becomes the initial value of Controller::DefaultBackgroundColor.
+  /// 
+  /// The `DefaultBackgroundColor` is the color that renders underneath all web
+  /// content. This means WebView2 renders this color when there is no web
+  /// content loaded. When no background color is defined in WebView2, it uses
+  /// the `DefaultBackgroundColor` property to render the background.
+  /// By default, this color is set to white.
+  /// 
+  /// This API only supports opaque colors and full transparency. It will
+  /// fail for colors with alpha values that don't equal 0 or 255.
+  /// When WebView2 is set to be fully transparent, it does not render a background,
+  /// allowing the content from windows behind it to be visible.
+  [propput] HRESULT DefaultBackgroundColor([in] COREWEBVIEW2_COLOR value);
+
+
+
+}
+
+
+
+/// Controller option used to allow user input pass through the browser and make
+/// them received in the host app process.
+[uuid(21eb052f-ad39-555e-824a-c87b091d4d36), object, pointer_default(unique)]
+interface ICoreWebView2ControllerOptions4 : ICoreWebView2ControllerOptions3 {
+  /// Gets the `AllowHostInputProcessing` property.
+  [propget] HRESULT AllowHostInputProcessing([out, retval] BOOL* value);
+
+
+  /// `AllowHostInputProcessing` property is to enable/disable input passing through
+  /// the app before being delivered to the WebView2. This property is only applicable
+  /// to controllers created with `CoreWebView2Environment.CreateCoreWebView2ControllerAsync` and not
+  /// composition controllers created with `CoreWebView2Environment.CreateCoreWebView2CompositionControllerAsync`.
+  /// By default the value is `FALSE`.
+  /// Setting this property has no effect when using visual hosting.
+  /// \snippet AppWindow.cpp AllowHostInputProcessing
+  [propput] HRESULT AllowHostInputProcessing([in] BOOL value);
 
 
 
